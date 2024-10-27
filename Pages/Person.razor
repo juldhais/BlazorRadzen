@@ -1,0 +1,152 @@
+﻿@page "/person"
+@using BlazorRadzen.Models
+@using System.Text.Json
+@inject NavigationManager NavigationManager
+@inject ContextMenuService ContextMenuService
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject IJSRuntime JSRuntime
+
+<RadzenText Text="Person" TextStyle="TextStyle.DisplayH4" Class="mb-5">
+    <RadzenIcon Icon="table_view" />
+</RadzenText>
+
+<RadzenStack Orientation="Orientation.Horizontal" class="mb-4">
+    <RadzenButton Click="Create" Icon="add" Text="Create New Person" class="mr-2" />
+</RadzenStack>
+
+<RadzenDataGrid Data="personData" TItem="PersonModel"
+                AllowFiltering="true" FilterMode="FilterMode.Advanced" LogicalFilterOperator="LogicalFilterOperator.Or" AllowSorting="true"
+                AllowPaging="true" PageSize="10" PagerHorizontalAlign="HorizontalAlign.Right" ShowPagingSummary="true"
+                class="rz-shadow-1" AllowAlternatingRows="false">
+    <Columns>
+        <RadzenDataGridColumn TItem="PersonModel" Sortable="false" Filterable="false">
+            <Template Context="item">
+                <RadzenButton Click="() => Update(item)" ButtonStyle="ButtonStyle.Success" Variant="Variant.Flat" Icon="edit" class="rz-mr-2" />
+                <RadzenButton Click="() => Delete(item)" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Flat" Icon="delete" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="PersonModel" Property="Id" Title="Id" />
+        <RadzenDataGridColumn TItem="PersonModel" Property="FirstName" Title="First Name" />
+        <RadzenDataGridColumn TItem="PersonModel" Property="LastName" Title="LastName" />
+        <RadzenDataGridColumn TItem="PersonModel" Property="BirthDate" Title="Birth Date" FormatString="{0:dd/MM/yyyy}" />
+        <RadzenDataGridColumn TItem="PersonModel" Property="Gender" Title="Gender" />
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    private string editMode = "";
+    private PersonModel editModel = new();
+    private List<PersonModel> personData = [];
+    private List<string> gender = ["Male", "Female"];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var json = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "PersonData");
+        personData = string.IsNullOrWhiteSpace(json) ? [] : JsonSerializer.Deserialize<List<PersonModel>>(json);
+    }
+
+    async Task ShowEdit()
+    {
+        var title = editMode == "Create" ? "Create New Person" : $"Update Person {editModel.FirstName}";
+
+        await DialogService.OpenAsync(title, content =>
+            @<RadzenStack>
+                <RadzenFormField Text="Id">
+                    <RadzenNumeric @bind-Value="editModel.Id" />
+                </RadzenFormField>
+
+                <RadzenFormField Text="First Name">
+                    <RadzenTextBox @bind-Value="editModel.FirstName" />
+                </RadzenFormField>
+
+                <RadzenFormField Text="Last Name">
+                    <RadzenTextBox @bind-Value="editModel.LastName" />
+                </RadzenFormField>
+
+                <RadzenFormField Text="Birth Date">
+                    <RadzenDatePicker @bind-Value="editModel.BirthDate" DateFormat="dd/MM/yyyy" />
+                </RadzenFormField>
+
+                <RadzenFormField Text="Gender">
+                    <RadzenDropDown @bind-Value="editModel.Gender" Data="gender">
+                
+                    </RadzenDropDown>
+                </RadzenFormField>
+
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" class="rz-mt-5">
+                    <RadzenButton Click="CancelEdit" ButtonStyle="ButtonStyle.Light" Text="Cancel" Icon="close" />
+                    <RadzenButton Click="SaveEdit" Text="Save" Icon="done" class="rz-px-7" />
+                </RadzenStack>
+            </RadzenStack>
+    );
+    }
+
+    private async void Create()
+    {
+        editMode = "Create";
+        editModel = new();
+        await ShowEdit();
+    }
+
+    private async void Update(PersonModel model)
+    {
+        editMode = "Update";
+        editModel = model;
+        await ShowEdit();
+    }
+
+    private async void Delete(PersonModel model)
+    {
+        var result = await DialogService.Confirm(
+            "Are you sure?", 
+            $"Delete person: {model.FirstName} {model.LastName}", 
+            new ConfirmOptions { OkButtonText = "Delete", CancelButtonText = "Cancel" }
+        );
+
+        if (result == true)
+        {
+            personData.Remove(model);
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "PersonData", JsonSerializer.Serialize(personData));
+            await LoadData();
+            StateHasChanged();
+        }
+    }
+
+    private async void SaveEdit()
+    {
+        try
+        {
+            if (editMode == "Create")
+            {
+                personData.Add(editModel);
+            }
+            else
+            {
+                var model = personData.First(x => x.Id == editModel.Id);
+                model = editModel;
+            }
+
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "PersonData", JsonSerializer.Serialize(personData));
+            await LoadData();
+            StateHasChanged();
+
+            NotificationService.Notify(NotificationSeverity.Info, "Data saved successfully.");
+            DialogService.Close();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, ex.Message);
+        }
+    }
+
+    private void CancelEdit()
+    {
+        DialogService.Close();
+    }
+}

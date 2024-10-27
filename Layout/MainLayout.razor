@@ -1,0 +1,39 @@
+﻿@inherits LayoutComponentBase
+
+<RadzenLayout>
+    <RadzenHeader>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
+            <RadzenSidebarToggle Click="@(() => _drawerOpen = !_drawerOpen)" />
+            <RadzenLabel Text="Blazor Radzen" />
+        </RadzenStack>
+    </RadzenHeader>
+
+    <RadzenSidebar @bind-Expanded="_drawerOpen" Style="width:300px">
+        <RadzenPanelMenu>
+            <RadzenPanelMenuItem Text="Home" Icon="home" Path="/"/>
+            
+            <RadzenPanelMenuItem Text="Data" Icon="table_view" >
+                <RadzenPanelMenuItem Text="Person" Icon="person" Path="/person" />
+                <RadzenPanelMenuItem Text="Product" Icon="shopping_basket" Path="/product" />
+            </RadzenPanelMenuItem>
+        </RadzenPanelMenu>
+    </RadzenSidebar>
+
+    <RadzenBody>
+        <div class="rz-p-4">
+            @Body
+        </div>
+    </RadzenBody>
+</RadzenLayout>
+
+<RadzenComponents />
+
+
+@code {
+    bool _drawerOpen = true;
+
+    void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+}
